@@ -1243,8 +1243,25 @@ install_selfsigned_cert() {
 install_postfixadmin() {
     print_step "Installation de PostfixAdmin"
     
-    print_info "Installation des dépendances..."
-    execute_command "DEBIAN_FRONTEND=noninteractive apt-get install -y apache2 php php-mysql php-imap php-mbstring php-curl libapache2-mod-php" \
+    # Vérifier si Apache est déjà installé
+    if command -v apache2 &> /dev/null; then
+        print_info "Apache2 est déjà installé"
+    else
+        print_info "Installation d'Apache2..."
+        execute_command "DEBIAN_FRONTEND=noninteractive apt-get install -y apache2" \
+            "Échec de l'installation d'Apache2" || exit_with_error "Impossible d'installer Apache2"
+    fi
+    
+    # Vérifier si PHP est déjà installé
+    if command -v php &> /dev/null; then
+        print_info "PHP est déjà installé (version $(php -v | head -n 1 | cut -d ' ' -f 2))"
+    else
+        print_info "Installation de PHP..."
+    fi
+    
+    print_info "Installation des dépendances PHP..."
+    # Note: php-imap n'est pas disponible dans Debian 13, on l'exclut
+    execute_command "DEBIAN_FRONTEND=noninteractive apt-get install -y php php-mysql php-mbstring php-curl libapache2-mod-php" \
         "Échec de l'installation des dépendances" || exit_with_error "Impossible d'installer les dépendances de PostfixAdmin"
     
     print_info "Téléchargement de PostfixAdmin..."
