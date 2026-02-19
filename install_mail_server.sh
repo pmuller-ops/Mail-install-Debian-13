@@ -1034,8 +1034,11 @@ configure_dovecot_unix() {
     
     # Configuration principale
     cat > /etc/dovecot/dovecot.conf << EOF
-# Configuration Dovecot - Comptes Unix
+# Configuration Dovecot 2.4 - Comptes Unix
 # Généré automatiquement le $(date)
+
+dovecot_config_version = 2.4.0
+dovecot_storage_version = 2.4
 
 protocols = imap pop3 lmtp
 listen = *, ::
@@ -1047,14 +1050,15 @@ EOF
 
     # Configuration 10-auth.conf
     cat > /etc/dovecot/conf.d/10-auth.conf << EOF
-disable_plaintext_auth = yes
+auth_allow_cleartext = no
 auth_mechanisms = plain login
 !include auth-system.conf.ext
 EOF
 
     # Configuration 10-mail.conf
     cat > /etc/dovecot/conf.d/10-mail.conf << EOF
-mail_location = maildir:~/Maildir
+mail_driver = maildir
+mail_path = ~/Maildir
 namespace inbox {
   inbox = yes
 }
@@ -1119,8 +1123,8 @@ EOF
     # Configuration 10-ssl.conf (temporaire)
     cat > /etc/dovecot/conf.d/10-ssl.conf << EOF
 ssl = required
-ssl_cert = </etc/ssl/certs/ssl-cert-snakeoil.pem
-ssl_key = </etc/ssl/private/ssl-cert-snakeoil.key
+ssl_server_cert_file = </etc/ssl/certs/ssl-cert-snakeoil.pem
+ssl_server_key_file = </etc/ssl/private/ssl-cert-snakeoil.key
 ssl_min_protocol = TLSv1.2
 ssl_cipher_list = HIGH:!aNULL:!MD5
 ssl_prefer_server_ciphers = yes
@@ -1138,8 +1142,11 @@ configure_dovecot_mysql() {
     
     # Configuration principale
     cat > /etc/dovecot/dovecot.conf << EOF
-# Configuration Dovecot - MySQL
+# Configuration Dovecot 2.4 - MySQL
 # Généré automatiquement le $(date)
+
+dovecot_config_version = 2.4.0
+dovecot_storage_version = 2.4
 
 protocols = imap pop3 lmtp
 listen = *, ::
@@ -1151,37 +1158,32 @@ EOF
 
     # Configuration 10-auth.conf
     cat > /etc/dovecot/conf.d/10-auth.conf << EOF
-disable_plaintext_auth = yes
+auth_allow_cleartext = no
 auth_mechanisms = plain login
 !include auth-sql.conf.ext
 EOF
 
-    # Configuration auth-sql.conf.ext
+    # Configuration auth-sql.conf.ext avec syntaxe Dovecot 2.4
     cat > /etc/dovecot/conf.d/auth-sql.conf.ext << EOF
-passdb {
-  driver = sql
-  args = /etc/dovecot/dovecot-sql.conf.ext
+passdb sql {
+  driver = mysql
+  connect = host=127.0.0.1 dbname=mailserver user=mailuser password=${MYSQL_MAIL_PASSWORD}
+  default_pass_scheme = SHA512-CRYPT
+  password_query = SELECT email as user, password FROM virtual_users WHERE email='%{user}';
 }
-userdb {
-  driver = static
-  args = uid=vmail gid=vmail home=/var/mail/vhosts/%d/%n
+
+userdb static {
+  args = uid=vmail gid=vmail home=/var/mail/vhosts/%{user | domain}/%{user | username}
 }
 EOF
 
-    # Configuration dovecot-sql.conf.ext
-    cat > /etc/dovecot/dovecot-sql.conf.ext << EOF
-driver = mysql
-connect = host=127.0.0.1 dbname=mailserver user=mailuser password=${MYSQL_MAIL_PASSWORD}
-default_pass_scheme = SHA512-CRYPT
-password_query = SELECT email as user, password FROM virtual_users WHERE email='%u';
-EOF
-
-    chmod 640 /etc/dovecot/dovecot-sql.conf.ext
-    chown root:dovecot /etc/dovecot/dovecot-sql.conf.ext
+    chmod 640 /etc/dovecot/conf.d/auth-sql.conf.ext
+    chown root:dovecot /etc/dovecot/conf.d/auth-sql.conf.ext
     
     # Configuration 10-mail.conf
     cat > /etc/dovecot/conf.d/10-mail.conf << EOF
-mail_location = maildir:/var/mail/vhosts/%d/%n
+mail_driver = maildir
+mail_path = /var/mail/vhosts/%{user | domain}/%{user | username}
 namespace inbox {
   inbox = yes
 }
@@ -1250,8 +1252,8 @@ EOF
     # Configuration 10-ssl.conf (temporaire)
     cat > /etc/dovecot/conf.d/10-ssl.conf << EOF
 ssl = required
-ssl_cert = </etc/ssl/certs/ssl-cert-snakeoil.pem
-ssl_key = </etc/ssl/private/ssl-cert-snakeoil.key
+ssl_server_cert_file = </etc/ssl/certs/ssl-cert-snakeoil.pem
+ssl_server_key_file = </etc/ssl/private/ssl-cert-snakeoil.key
 ssl_min_protocol = TLSv1.2
 ssl_cipher_list = HIGH:!aNULL:!MD5
 ssl_prefer_server_ciphers = yes

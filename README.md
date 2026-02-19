@@ -2,7 +2,7 @@
 
 **Auteur** : Philippe Muller  
 **Licence** : GNU General Public License v3.0 (GPL-3.0)  
-**Version** : 1.1  
+**Version** : 1.2  
 **Date** : Février 2026
 
 ## 📧 Description
@@ -42,7 +42,7 @@ Script BASH complet pour l'installation automatisée d'un serveur mail sur Debia
 - **DNS** : Nom de domaine pointant vers le serveur (pour Let's Encrypt)
 - **Ports** : Ports 25, 587, 465, 143, 993, 110, 995 disponibles
 
-## ⚠️ Corrections Importantes (Version 1.1)
+## ⚠️ Corrections Importantes (Version 1.2)
 
 Cette version corrige plusieurs problèmes identifiés lors de l'installation sur Debian 13 :
 
@@ -53,7 +53,16 @@ Cette version corrige plusieurs problèmes identifiés lors de l'installation su
    - Algorithme de chiffrement corrigé : `php_crypt:SHA512-CRYPT` au lieu de `sha512crypt`
    - Création automatique de toutes les tables PostfixAdmin nécessaires
    - Création automatique du super-administrateur lors de l'installation
+   - Colonne `password_expiry` de type `INT(11)` (nombre de jours) au lieu de `DATETIME`
 4. **Vérifications Apache/PHP** : Détection si déjà installés avant tentative d'installation
+5. **Configuration Dovecot 2.4** : Mise à jour pour la syntaxe Dovecot 2.4
+   - Ajout de `dovecot_config_version = 2.4.0` et `dovecot_storage_version = 2.4`
+   - `disable_plaintext_auth` → `auth_allow_cleartext`
+   - `mail_location` → `mail_driver` + `mail_path`
+   - `ssl_cert`/`ssl_key` → `ssl_server_cert_file`/`ssl_server_key_file`
+   - Variables `%d`/`%n` → `%{user | domain}`/`%{user | username}`
+   - Nouvelle syntaxe `passdb sql { }` et `userdb static { }`
+   - Configuration SQL intégrée directement (plus de fichier externe pour MySQL)
 
 ## 🚀 Installation
 
@@ -405,13 +414,23 @@ Pour plus d'informations, consultez le texte complet de la licence GPL-3.0 : htt
 
 ## 🎯 Informations Techniques
 
-- **Version** : 1.1
+- **Version** : 1.2
 - **Date** : Février 2026
-- **Compatibilité** : Debian 13 (Trixie)
+- **Compatibilité** : Debian 13 (Trixie) avec Dovecot 2.4
 - **Langage** : Bash
 - **Auteur** : Philippe Muller
 
 ### Historique des versions
+
+**Version 1.2** (19/02/2026)
+- Correction : Type de colonne `password_expiry` (INT au lieu de DATETIME)
+- Correction : Configuration Dovecot 2.4 (nouvelle syntaxe)
+  - Ajout des versions de configuration Dovecot
+  - Mise à jour des directives d'authentification
+  - Mise à jour des directives mail_location
+  - Mise à jour des directives SSL
+  - Mise à jour des variables utilisateur
+  - Nouvelle syntaxe passdb/userdb pour MySQL
 
 **Version 1.1** (19/02/2026)
 - Correction : Suppression du paquet `software-properties-common` (non disponible sur Debian 13)
