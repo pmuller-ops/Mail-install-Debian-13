@@ -719,7 +719,98 @@ CREATE TABLE IF NOT EXISTS virtual_aliases (
     FOREIGN KEY (domain_id) REFERENCES virtual_domains(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Tables PostfixAdmin
+CREATE TABLE IF NOT EXISTS config (
+    id INT(11) NOT NULL AUTO_INCREMENT,
+    name VARCHAR(20) NOT NULL DEFAULT '',
+    value VARCHAR(20) NOT NULL DEFAULT '',
+    PRIMARY KEY (id),
+    UNIQUE KEY name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin (
+    username VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    modified DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    superadmin TINYINT(1) NOT NULL DEFAULT 0,
+    phone VARCHAR(30) DEFAULT NULL,
+    email_other VARCHAR(255) DEFAULT NULL,
+    token VARCHAR(255) DEFAULT NULL,
+    token_validity DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    PRIMARY KEY (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS alias (
+    address VARCHAR(255) NOT NULL,
+    goto TEXT NOT NULL,
+    domain VARCHAR(255) NOT NULL,
+    created DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    modified DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    PRIMARY KEY (address),
+    KEY domain (domain)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS domain (
+    domain VARCHAR(255) NOT NULL,
+    description VARCHAR(255) DEFAULT NULL,
+    aliases INT(10) NOT NULL DEFAULT 0,
+    mailboxes INT(10) NOT NULL DEFAULT 0,
+    maxquota BIGINT(20) NOT NULL DEFAULT 0,
+    quota BIGINT(20) NOT NULL DEFAULT 0,
+    transport VARCHAR(255) DEFAULT NULL,
+    backupmx TINYINT(1) NOT NULL DEFAULT 0,
+    created DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    modified DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    PRIMARY KEY (domain)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS domain_admins (
+    username VARCHAR(255) NOT NULL,
+    domain VARCHAR(255) NOT NULL,
+    created DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    KEY username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS mailbox (
+    username VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    name VARCHAR(255) DEFAULT NULL,
+    maildir VARCHAR(255) NOT NULL,
+    quota BIGINT(20) NOT NULL DEFAULT 0,
+    local_part VARCHAR(255) NOT NULL,
+    domain VARCHAR(255) NOT NULL,
+    created DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    modified DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    phone VARCHAR(30) DEFAULT NULL,
+    email_other VARCHAR(255) DEFAULT NULL,
+    token VARCHAR(255) DEFAULT NULL,
+    token_validity DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    PRIMARY KEY (username),
+    KEY domain (domain)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS log (
+    timestamp DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    username VARCHAR(255) NOT NULL,
+    domain VARCHAR(255) NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    data TEXT NOT NULL,
+    KEY timestamp (timestamp),
+    KEY domain_timestamp (domain,timestamp)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insérer les données initiales
 INSERT INTO virtual_domains (name) VALUES ('${DOMAIN}');
+INSERT INTO config (name, value) VALUES ('version', '1843') ON DUPLICATE KEY UPDATE value = '1843';
+INSERT INTO domain (domain, description, created, modified, active) 
+VALUES ('${DOMAIN}', 'Domaine principal', NOW(), NOW(), 1) 
+ON DUPLICATE KEY UPDATE modified = NOW();
 EOF
 
     if [ $? -ne 0 ]; then
@@ -1293,7 +1384,7 @@ install_postfixadmin() {
 \$CONF['database_user'] = 'mailuser';
 \$CONF['database_password'] = '${MYSQL_MAIL_PASSWORD}';
 \$CONF['database_name'] = 'mailserver';
-\$CONF['encrypt'] = 'sha512crypt';
+\$CONF['encrypt'] = 'php_crypt:SHA512-CRYPT';
 \$CONF['default_aliases'] = array (
     'abuse' => 'abuse@${DOMAIN}',
     'hostmaster' => 'hostmaster@${DOMAIN}',
@@ -1330,8 +1421,93 @@ EOF
     a2enmod rewrite >> "$LOG_FILE" 2>> "$ERROR_LOG"
     systemctl restart apache2 >> "$LOG_FILE" 2>> "$ERROR_LOG"
     
+    # Créer un super-administrateur PostfixAdmin
+    print_info "Création du super-administrateur PostfixAdmin..."
+    
+    echo ""
+    print_warning "Configuration du compte super-administrateur PostfixAdmin"
+    echo -e "${CYAN}Ce compte vous permettra de gérer les domaines et comptes mail${NC}"
+    echo ""
+    
+    # Demander l'email de l'administrateur
+    while true; do
+        echo -e -n "${CYAN}Email du super-administrateur (ex: admin@${DOMAIN}): ${NC}"
+        read POSTFIXADMIN_EMAIL
+        
+        if [ -z "$POSTFIXADMIN_EMAIL" ]; then
+            print_error "L'email est requis"
+            continue
+        fi
+        
+        if [[ "$POSTFIXADMIN_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            break
+        else
+            print_error "Format d'email invalide"
+        fi
+    done
+    
+    # Demander le mot de passe
+    while true; do
+        echo -e -n "${CYAN}Mot de passe du super-administrateur (min 8 caractères): ${NC}"
+        read -rs POSTFIXADMIN_PASSWORD
+        echo ""
+        
+        if [ -z "$POSTFIXADMIN_PASSWORD" ]; then
+            print_error "Le mot de passe ne peut pas être vide"
+            continue
+        fi
+        
+        if [ ${#POSTFIXADMIN_PASSWORD} -lt 8 ]; then
+            print_error "Le mot de passe doit contenir au moins 8 caractères"
+            continue
+        fi
+        
+        echo -e -n "${CYAN}Confirmez le mot de passe: ${NC}"
+        read -rs POSTFIXADMIN_PASSWORD_CONFIRM
+        echo ""
+        
+        if [ "$POSTFIXADMIN_PASSWORD" != "$POSTFIXADMIN_PASSWORD_CONFIRM" ]; then
+            print_error "Les mots de passe ne correspondent pas"
+            continue
+        fi
+        
+        break
+    done
+    
+    # Générer le hash du mot de passe avec PHP
+    POSTFIXADMIN_HASH=$(php -r "
+\$password = '$POSTFIXADMIN_PASSWORD';
+\$salt = '\$6\$rounds=5000\$' . substr(str_replace('+', '.', base64_encode(random_bytes(16))), 0, 16) . '\$';
+\$hash = crypt(\$password, \$salt);
+echo '{SHA512-CRYPT}' . \$hash;
+")
+    
+    if [ -z "$POSTFIXADMIN_HASH" ]; then
+        print_error "Échec de la génération du hash du mot de passe"
+        print_warning "Vous devrez créer manuellement le compte administrateur"
+    else
+        # Créer le super-administrateur dans la base de données
+        CURRENT_DATE=$(date '+%Y-%m-%d %H:%M:%S')
+        
+        mysql -u root -p"${MYSQL_ROOT_PASSWORD}" mailserver << EOFADMIN 2>> "$ERROR_LOG"
+INSERT INTO admin (username, password, created, modified, active, superadmin)
+VALUES ('${POSTFIXADMIN_EMAIL}', '${POSTFIXADMIN_HASH}', '${CURRENT_DATE}', '${CURRENT_DATE}', 1, 1)
+ON DUPLICATE KEY UPDATE password = '${POSTFIXADMIN_HASH}', modified = '${CURRENT_DATE}', active = 1, superadmin = 1;
+
+INSERT INTO domain_admins (username, domain, created, active)
+VALUES ('${POSTFIXADMIN_EMAIL}', 'ALL', '${CURRENT_DATE}', 1)
+ON DUPLICATE KEY UPDATE active = 1;
+EOFADMIN
+        
+        if [ $? -eq 0 ]; then
+            print_success "Super-administrateur créé: ${POSTFIXADMIN_EMAIL}"
+        else
+            print_error "Échec de la création du super-administrateur"
+        fi
+    fi
+    
     print_success "PostfixAdmin installé"
-    print_info "Accès: http://${HOSTNAME}/setup.php"
+    print_info "Accès: http://${HOSTNAME}/postfixadmin/public/login.php"
 }
 
 # Démarrer et activer les services

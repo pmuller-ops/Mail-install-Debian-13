@@ -2,7 +2,7 @@
 
 **Auteur** : Philippe Muller  
 **Licence** : GNU General Public License v3.0 (GPL-3.0)  
-**Version** : 1.0  
+**Version** : 1.1  
 **Date** : Février 2026
 
 ## 📧 Description
@@ -36,11 +36,24 @@ Script BASH complet pour l'installation automatisée d'un serveur mail sur Debia
 
 ## 📋 Prérequis
 
-- **Système** : Debian 12 ou 13 (optimisé pour Debian 13)
+- **Système** : Debian 13 (Trixie)
 - **Accès** : Droits root (sudo)
 - **Réseau** : Connexion Internet active
 - **DNS** : Nom de domaine pointant vers le serveur (pour Let's Encrypt)
 - **Ports** : Ports 25, 587, 465, 143, 993, 110, 995 disponibles
+
+## ⚠️ Corrections Importantes (Version 1.1)
+
+Cette version corrige plusieurs problèmes identifiés lors de l'installation sur Debian 13 :
+
+### Corrections apportées :
+1. **Paquet `software-properties-common`** : Supprimé car non disponible dans Debian 13
+2. **Paquet `php-imap`** : Supprimé car non disponible dans Debian 13
+3. **Configuration PostfixAdmin** : 
+   - Algorithme de chiffrement corrigé : `php_crypt:SHA512-CRYPT` au lieu de `sha512crypt`
+   - Création automatique de toutes les tables PostfixAdmin nécessaires
+   - Création automatique du super-administrateur lors de l'installation
+4. **Vérifications Apache/PHP** : Détection si déjà installés avant tentative d'installation
 
 ## 🚀 Installation
 
@@ -113,10 +126,15 @@ sudo adduser jean
 ### Avec MySQL/PostfixAdmin
 
 #### Option 1 : Via PostfixAdmin (Interface Web)
-1. Accéder à `http://votre-serveur/setup.php`
-2. Suivre l'assistant de configuration
-3. Créer un super-administrateur
+1. Le super-administrateur est créé automatiquement lors de l'installation
+2. Accéder à `http://votre-serveur/postfixadmin/public/login.php`
+3. Se connecter avec l'email et le mot de passe définis lors de l'installation
 4. Gérer les domaines et utilisateurs via l'interface
+
+**Note** : Le script crée automatiquement :
+- Toutes les tables PostfixAdmin nécessaires
+- Le domaine principal dans PostfixAdmin
+- Un compte super-administrateur avec tous les privilèges
 
 #### Option 2 : Manuellement via MySQL
 ```bash
@@ -341,7 +359,9 @@ SELECT * FROM virtual_aliases;
 ### PostfixAdmin
 - Interface web pour gérer les comptes mail
 - Nécessite Apache et PHP
-- Accessible via `http://votre-serveur/setup.php`
+- Accessible via `http://votre-serveur/postfixadmin/public/login.php`
+- Le super-administrateur est créé automatiquement lors de l'installation
+- Toutes les tables nécessaires sont créées automatiquement
 
 ## 🤝 Support
 
@@ -385,11 +405,25 @@ Pour plus d'informations, consultez le texte complet de la licence GPL-3.0 : htt
 
 ## 🎯 Informations Techniques
 
-- **Version** : 1.0
+- **Version** : 1.1
 - **Date** : Février 2026
-- **Compatibilité** : Debian 12+, optimisé pour Debian 13
+- **Compatibilité** : Debian 13 (Trixie)
 - **Langage** : Bash
 - **Auteur** : Philippe Muller
+
+### Historique des versions
+
+**Version 1.1** (19/02/2026)
+- Correction : Suppression du paquet `software-properties-common` (non disponible sur Debian 13)
+- Correction : Suppression du paquet `php-imap` (non disponible sur Debian 13)
+- Correction : Algorithme de chiffrement PostfixAdmin (`php_crypt:SHA512-CRYPT`)
+- Amélioration : Création automatique de toutes les tables PostfixAdmin
+- Amélioration : Création automatique du super-administrateur PostfixAdmin
+- Amélioration : Vérification si Apache/PHP sont déjà installés
+- Amélioration : Messages explicatifs pour les mots de passe MySQL
+
+**Version 1.0** (Février 2026)
+- Version initiale
 
 ## 🤝 Contribution
 
