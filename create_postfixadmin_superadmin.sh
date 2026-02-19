@@ -143,20 +143,19 @@ fi
 
 # Générer le hash du mot de passe (SHA512-CRYPT compatible avec PostfixAdmin)
 print_info "Génération du hash du mot de passe..."
-PASSWORD_HASH=$(doveadm pw -s SHA512-CRYPT -p "$ADMIN_PASSWORD")
+
+# Utiliser PHP pour générer le hash (plus fiable que doveadm)
+if command -v php &> /dev/null; then
+    PASSWORD_HASH=$(php -r "echo '{SHA512-CRYPT}' . crypt('$ADMIN_PASSWORD', '\$6\$rounds=5000\$' . substr(base64_encode(random_bytes(16)), 0, 16) . '\$');")
+else
+    print_error "PHP n'est pas installé"
+    print_info "PHP est requis pour générer le hash du mot de passe"
+    exit 1
+fi
 
 if [ -z "$PASSWORD_HASH" ]; then
     print_error "Échec de la génération du hash du mot de passe"
-    print_info "Tentative avec une méthode alternative..."
-    
-    # Méthode alternative avec PHP
-    if command -v php &> /dev/null; then
-        PASSWORD_HASH=$(php -r "echo '{SHA512-CRYPT}' . crypt('$ADMIN_PASSWORD', '\$6\$rounds=5000\$' . substr(base64_encode(random_bytes(16)), 0, 16) . '\$');")
-    else
-        print_error "Impossible de générer le hash du mot de passe"
-        print_info "Veuillez installer dovecot-core ou PHP"
-        exit 1
-    fi
+    exit 1
 fi
 
 print_success "Hash généré"
