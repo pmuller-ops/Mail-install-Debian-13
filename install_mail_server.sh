@@ -382,8 +382,12 @@ collect_information() {
                 
                 # Mots de passe MySQL
                 echo ""
-                ask_password "Mot de passe root MySQL" MYSQL_ROOT_PASSWORD
-                ask_password "Mot de passe pour l'utilisateur mail MySQL" MYSQL_MAIL_PASSWORD
+                print_info "Configuration des mots de passe MySQL :"
+                echo -e "${YELLOW}  • Mot de passe root : administrateur principal MySQL (tous privilèges)${NC}"
+                echo -e "${YELLOW}  • Mot de passe mailuser : utilisateur dédié pour les services mail (privilèges limités)${NC}"
+                echo ""
+                ask_password "Mot de passe root MySQL (administrateur)" MYSQL_ROOT_PASSWORD
+                ask_password "Mot de passe pour l'utilisateur mailuser (services mail)" MYSQL_MAIL_PASSWORD
                 break
                 ;;
             *)
@@ -460,7 +464,7 @@ update_system() {
     execute_command "apt-get update" "Échec de la mise à jour des paquets" || exit_with_error "Impossible de mettre à jour le système"
     
     print_info "Installation des paquets de base..."
-    execute_command "DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release software-properties-common bc" \
+    execute_command "DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release bc" \
         "Échec de l'installation des paquets de base" || exit_with_error "Impossible d'installer les paquets de base"
     
     print_success "Système mis à jour"
