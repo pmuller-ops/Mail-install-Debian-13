@@ -765,6 +765,7 @@ CREATE TABLE IF NOT EXISTS domain (
     created DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
     modified DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
     active TINYINT(1) NOT NULL DEFAULT 1,
+    password_expiry INT(11) NOT NULL DEFAULT 0,
     PRIMARY KEY (domain)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -791,6 +792,7 @@ CREATE TABLE IF NOT EXISTS mailbox (
     email_other VARCHAR(255) DEFAULT NULL,
     token VARCHAR(255) DEFAULT NULL,
     token_validity DATETIME NOT NULL DEFAULT '2000-01-01 00:00:00',
+    password_expiry INT(11) NOT NULL DEFAULT 0,
     PRIMARY KEY (username),
     KEY domain (domain)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
